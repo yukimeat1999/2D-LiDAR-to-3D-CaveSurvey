@@ -31,5 +31,4 @@ Please check [this page](https://www.openrtm.org/openrtm/ja/node/7244).<br>
 ・ PointCloud_Viewer：MeasurementSystem，Registration，Analysesから受け取った点群データを表示する<br>
 <br>
 ## ドキュメント
-・ [マニュアル](https://github.com/yukimeat1999/2D-LiDAR-to-3D-CaveSurvey)<br>
-・ [スライド](https://github.com/yukimeat1999/2D-LiDAR-to-3D-CaveSurvey)<br>
+・ [マニュアル](https://github.com/yukimeat1999/2D-LiDAR-to-3D-CaveSurvey/blob/main/LiDAR%E3%82%92%E7%94%A8%E3%81%84%E3%81%9F%E6%B4%9E%E7%AA%9F3%E6%AC%A1%E5%85%83%E6%B8%AC%E9%87%8F%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%81%AERT%E3%82%B3%E3%83%B3%E3%83%9D%E3%83%BC%E3%83%8D%E3%83%B3%E3%83%88%E9%96%8B%E7%99%BA_v1.pdf)<br>
