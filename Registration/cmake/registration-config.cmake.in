@@ -1,0 +1,54 @@
+# Registration CMake config file
+#
+# This file sets the following variables:
+# Registration_FOUND - Always TRUE.
+# Registration_INCLUDE_DIRS - Directories containing the Registration include files.
+# Registration_IDL_DIRS - Directories containing the Registration IDL files.
+# Registration_LIBRARIES - Libraries needed to use Registration.
+# Registration_DEFINITIONS - Compiler flags for Registration.
+# Registration_VERSION - The version of Registration found.
+# Registration_VERSION_MAJOR - The major version of Registration found.
+# Registration_VERSION_MINOR - The minor version of Registration found.
+# Registration_VERSION_REVISION - The revision version of Registration found.
+# Registration_VERSION_CANDIDATE - The candidate version of Registration found.
+
+message(STATUS "Found Registration-@PROJECT_VERSION@")
+set(Registration_FOUND TRUE)
+
+find_package(<dependency> REQUIRED)
+
+#set(Registration_INCLUDE_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@"
+#    ${<dependency>_INCLUDE_DIRS}
+#    )
+#
+#set(Registration_IDL_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@/idl")
+set(Registration_INCLUDE_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@"
+    ${<dependency>_INCLUDE_DIRS}
+    )
+set(Registration_IDL_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@/idl")
+
+
+if(WIN32)
+    set(Registration_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_STATIC_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+else(WIN32)
+    set(Registration_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_SHARED_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+endif(WIN32)
+
+set(Registration_DEFINITIONS ${<dependency>_DEFINITIONS})
+
+set(Registration_VERSION @PROJECT_VERSION@)
+set(Registration_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(Registration_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(Registration_VERSION_REVISION @PROJECT_VERSION_REVISION@)
+set(Registration_VERSION_CANDIDATE @PROJECT_VERSION_CANDIDATE@)
+
