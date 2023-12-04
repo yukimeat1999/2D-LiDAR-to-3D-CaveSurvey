@@ -1,0 +1,4 @@
+set(hdrs
+    PointCloud_ViewerTest.h
+    PARENT_SCOPE
+    )

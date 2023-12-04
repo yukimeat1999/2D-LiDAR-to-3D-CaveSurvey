@@ -1,0 +1,54 @@
+# PointCloud_Viewer CMake config file
+#
+# This file sets the following variables:
+# PointCloud_Viewer_FOUND - Always TRUE.
+# PointCloud_Viewer_INCLUDE_DIRS - Directories containing the PointCloud_Viewer include files.
+# PointCloud_Viewer_IDL_DIRS - Directories containing the PointCloud_Viewer IDL files.
+# PointCloud_Viewer_LIBRARIES - Libraries needed to use PointCloud_Viewer.
+# PointCloud_Viewer_DEFINITIONS - Compiler flags for PointCloud_Viewer.
+# PointCloud_Viewer_VERSION - The version of PointCloud_Viewer found.
+# PointCloud_Viewer_VERSION_MAJOR - The major version of PointCloud_Viewer found.
+# PointCloud_Viewer_VERSION_MINOR - The minor version of PointCloud_Viewer found.
+# PointCloud_Viewer_VERSION_REVISION - The revision version of PointCloud_Viewer found.
+# PointCloud_Viewer_VERSION_CANDIDATE - The candidate version of PointCloud_Viewer found.
+
+message(STATUS "Found PointCloud_Viewer-@PROJECT_VERSION@")
+set(PointCloud_Viewer_FOUND TRUE)
+
+find_package(<dependency> REQUIRED)
+
+#set(PointCloud_Viewer_INCLUDE_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@"
+#    ${<dependency>_INCLUDE_DIRS}
+#    )
+#
+#set(PointCloud_Viewer_IDL_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@/idl")
+set(PointCloud_Viewer_INCLUDE_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@"
+    ${<dependency>_INCLUDE_DIRS}
+    )
+set(PointCloud_Viewer_IDL_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@/idl")
+
+
+if(WIN32)
+    set(PointCloud_Viewer_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_STATIC_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+else(WIN32)
+    set(PointCloud_Viewer_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_SHARED_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+endif(WIN32)
+
+set(PointCloud_Viewer_DEFINITIONS ${<dependency>_DEFINITIONS})
+
+set(PointCloud_Viewer_VERSION @PROJECT_VERSION@)
+set(PointCloud_Viewer_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(PointCloud_Viewer_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(PointCloud_Viewer_VERSION_REVISION @PROJECT_VERSION_REVISION@)
+set(PointCloud_Viewer_VERSION_CANDIDATE @PROJECT_VERSION_CANDIDATE@)
+
