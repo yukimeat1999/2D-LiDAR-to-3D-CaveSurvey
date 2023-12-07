@@ -325,9 +325,12 @@ RTC::ReturnCode_t PointCloud_Viewer::onActivated(RTC::UniqueId /*ec_id*/)
 {
     std::cerr << "[INFO] Activating PointCloud_Viewer...." << std::endl;
 
-    Localization_.x = 0;
-    Localization_.y = 0;
-    Localization_.z = 0;
+    if (Scan_1th) {
+        Localization_.x = 0;
+        Localization_.y = 0;
+        Localization_.z = 0;
+    }
+
     new_PC_flag        = true;
     new_PC_1th_flag    = true;
     new_PC_read_flag   = false;
@@ -348,7 +351,6 @@ RTC::ReturnCode_t PointCloud_Viewer::onActivated(RTC::UniqueId /*ec_id*/)
     new_closed      = true;
     merge_closed    = true;
     analyses_closed = true;
-    Scan_1th = false;
 
     InputCloud_times1 = 0;
     InputCloud_times2 = 0;
@@ -374,7 +376,6 @@ RTC::ReturnCode_t PointCloud_Viewer::onDeactivated(RTC::UniqueId /*ec_id*/)
     new_closed      = true;
     merge_closed    = true;
     analyses_closed = true;
-    Scan_1th = false;
 
     new_PointCloud_.reset();
     merge_PointCloud_.reset();
@@ -842,6 +843,12 @@ RTC::ReturnCode_t PointCloud_Viewer::onExecute(RTC::UniqueId /*ec_id*/)
 
 RTC::ReturnCode_t PointCloud_Viewer::onReset(RTC::UniqueId /*ec_id*/)
 {
+    Scan_1th = false;
+
+    Localization_.x = 0;
+    Localization_.y = 0;
+    Localization_.z = 0;
+
     return RTC::RTC_OK;
 }
 
