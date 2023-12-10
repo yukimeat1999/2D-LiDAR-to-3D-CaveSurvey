@@ -25,16 +25,21 @@ rem System shutdown
 rem RTC Deactive
 rtdeact /localhost/%COMPUTERNAME%.host_cxt/EtheURG0.rtc
 rtdeact /localhost/%COMPUTERNAME%.host_cxt/MeasurementSystem0.rtc
+rtdeact /localhost/%COMPUTERNAME%.host_cxt/PointCloud_Viewer0.rtc
 timeout 1
 
 rem Disconnect between ports
 rtdis ^
 /localhost/%COMPUTERNAME%.host_cxt/EtheURG0.rtc:range ^
 /localhost/%COMPUTERNAME%.host_cxt/MeasurementSystem0.rtc:range
+
+rtdis ^
+/localhost/%COMPUTERNAME%.host_cxt/PointCloud_Viewer0.rtc
 timeout 1
 
 rem RTCs termination process
 rtexit /localhost/%COMPUTERNAME%.host_cxt/EtheURG0.rtc
 rtexit /localhost/%COMPUTERNAME%.host_cxt/MeasurementSystem0.rtc
+rtexit /localhost/%COMPUTERNAME%.host_cxt/PointCloud_Viewer0.rtc
 
 endlocal
