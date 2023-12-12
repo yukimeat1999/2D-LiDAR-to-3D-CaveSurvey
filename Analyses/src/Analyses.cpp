@@ -15,6 +15,7 @@
 // PointCloud
 pcl::PointCloud<pcl::PointXYZ>::Ptr merge_PointCloud_;
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr analyses_PointCloud_;
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr filtered_analyses_PointCloud_;
 
 // Time
 std::chrono::system_clock::time_point startTime;
@@ -118,6 +119,8 @@ RTC::ReturnCode_t Analyses::onFinalize()
 
 RTC::ReturnCode_t Analyses::onActivated(RTC::UniqueId /*ec_id*/)
 {
+    std::cerr << "[INFO] Activating Analyses...." << std::endl;
+    
     merge_PC_flag        = true;
     merge_PC_1th_flag    = true;
     merge_PC_read_flag   = false;
@@ -143,14 +146,20 @@ RTC::ReturnCode_t Analyses::onActivated(RTC::UniqueId /*ec_id*/)
         pointcloud_data = malloc2d_double(3000000, LDIM);
     }
 
+    std::cerr << "[INFO] Activated Analyses OK!" << std::endl;
+
     return RTC::RTC_OK;
 }
 
 
 RTC::ReturnCode_t Analyses::onDeactivated(RTC::UniqueId /*ec_id*/)
 {
+    std::cerr << "[INFO] Deactivating Analyses...." << std::endl;
+    
     PC_Read_flag = false;
     merge_PointCloud_.reset();
+
+    std::cerr << "[INFO] Deactivated Analyses OK!" << std::endl;
 
     return RTC::RTC_OK;
 }
@@ -169,6 +178,7 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             m_merge_PointCloudIn.read();
             if (merge_PC_1th_flag) {
                 std::cerr << "[INFO] \"merge_PointCloud\" received!" << std::endl;
+                filtered_analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
                 merge_PC_1th_flag = false;
             }
             InputCloud_times++;
@@ -219,11 +229,10 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             printf("# of node is %d\n", gng_net->node_n);
             for (int i = 0; i < 20; i++) {
                 gng_main(gng_net, pointcloud_data, datasize);
-                
             }
 
             int currentsize = analyses_PointCloud_->size();
-            analyses_PointCloud_->resize(currentsize+gng_net->node_n);
+            analyses_PointCloud_->resize(currentsize + gng_net->node_n);
             for (int i = 0; i < gng_net->node_n; i++) {
                 analyses_PointCloud_->points[currentsize + i].x = gng_net->node[i][0];
                 analyses_PointCloud_->points[currentsize + i].y = gng_net->node[i][2];
@@ -231,15 +240,32 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
                 analyses_PointCloud_->points[currentsize + i].r = 0;
                 analyses_PointCloud_->points[currentsize + i].g = 0;
                 analyses_PointCloud_->points[currentsize + i].b = 0;
-                if(gng_net->node[i][7] != - 10.0){
-                    analyses_PointCloud_->points[currentsize + i].r = (int)(gng_net->node[i][7]/0.01*255.0);
-                    if (analyses_PointCloud_->points[currentsize + i].r > 255) analyses_PointCloud_->points[currentsize + i].r = 255;
+                if (gng_net->node[i][7] != -10.0) {
+                    double threshold = 0.1;
+                    analyses_PointCloud_->points[currentsize + i].r = (int)(gng_net->node[i][7] / threshold * 255.0);
+
+                    if (analyses_PointCloud_->points[currentsize + i].r > 100) {
+                        pcl::PointXYZRGB point;
+                        point.x = gng_net->node[i][0];
+                        point.y = gng_net->node[i][2];
+                        point.z = gng_net->node[i][1];
+                        point.r = (int)(gng_net->node[i][7] / threshold * 255.0);
+                        point.g = 0;
+                        point.b = 0;
+                        if (analyses_PointCloud_->points[currentsize + i].r > 255) {
+                            analyses_PointCloud_->points[currentsize + i].r = 255;
+                            point.r = 255;
+                        }
+                        filtered_analyses_PointCloud_->points.push_back(point);
+                    }
                 }
                 else {
                     analyses_PointCloud_->points[currentsize + i].g = 255;
                 }
-                
             }
+            filtered_analyses_PointCloud_->width = static_cast<uint32_t>(filtered_analyses_PointCloud_->points.size());
+            filtered_analyses_PointCloud_->height = 1;
+            filtered_analyses_PointCloud_->is_dense = true;
 
             merge_PC_read_flag = true;
         }
@@ -272,12 +298,28 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             ///////////////////////////////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////////////////////////////
            
-           
             pcl::io::savePLYFile("res.ply", *analyses_PointCloud_);
-            // test
-            //analyses_PointCloud_ = merge_PointCloud_;
-            int Process_OK = 0; // 関数等からの戻り値によって点群の出力を開始
 
+            analyses_PointCloud_.reset();
+            analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+            int currentsize = filtered_analyses_PointCloud_->size();
+            analyses_PointCloud_->resize(currentsize);
+            for (int i = 0; i < currentsize; i++) {
+                analyses_PointCloud_->points[i].x = filtered_analyses_PointCloud_->points[i].x;
+                analyses_PointCloud_->points[i].y = filtered_analyses_PointCloud_->points[i].y;
+                analyses_PointCloud_->points[i].z = filtered_analyses_PointCloud_->points[i].z;
+            }
+
+            // 出力する点群が無い場合，データポートから0を出力
+            if (analyses_PointCloud_->size() == 0) {
+                analyses_PointCloud_->resize(1);
+                analyses_PointCloud_->points[0].x = NULL;
+                analyses_PointCloud_->points[0].y = NULL;
+                analyses_PointCloud_->points[0].z = NULL;
+             }
+
+            int Process_OK = 0; // 関数等からの戻り値によって点群の出力を開始
 
             // 点群の出力 /////////////////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////////////////////////////
@@ -288,7 +330,7 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
                 size_t analyses_PC_size = analyses_PointCloud_->width * analyses_PointCloud_->height;
 
                 // 点群を分割して送信
-                std::cerr << "[INFO] \"analyses_PointCloud\" is divided..." << std::endl;
+                std::cerr << "[INFO] \"analyses_PointCloud\" is divided..." << analyses_PointCloud_->size() << std::endl;
                 int OutputCloud_times = 0;
 
                 // 点群を分割して通信
@@ -358,6 +400,7 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
 
                 InputCloud_times = 0;
                 merge_PointCloud_.reset();
+                filtered_analyses_PointCloud_.reset();
                 merge_PointCloud_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
             }
         }
