@@ -1,0 +1,54 @@
+# PointCloud_Reader CMake config file
+#
+# This file sets the following variables:
+# PointCloud_Reader_FOUND - Always TRUE.
+# PointCloud_Reader_INCLUDE_DIRS - Directories containing the PointCloud_Reader include files.
+# PointCloud_Reader_IDL_DIRS - Directories containing the PointCloud_Reader IDL files.
+# PointCloud_Reader_LIBRARIES - Libraries needed to use PointCloud_Reader.
+# PointCloud_Reader_DEFINITIONS - Compiler flags for PointCloud_Reader.
+# PointCloud_Reader_VERSION - The version of PointCloud_Reader found.
+# PointCloud_Reader_VERSION_MAJOR - The major version of PointCloud_Reader found.
+# PointCloud_Reader_VERSION_MINOR - The minor version of PointCloud_Reader found.
+# PointCloud_Reader_VERSION_REVISION - The revision version of PointCloud_Reader found.
+# PointCloud_Reader_VERSION_CANDIDATE - The candidate version of PointCloud_Reader found.
+
+message(STATUS "Found PointCloud_Reader-@PROJECT_VERSION@")
+set(PointCloud_Reader_FOUND TRUE)
+
+find_package(<dependency> REQUIRED)
+
+#set(PointCloud_Reader_INCLUDE_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@"
+#    ${<dependency>_INCLUDE_DIRS}
+#    )
+#
+#set(PointCloud_Reader_IDL_DIRS
+#    "@CMAKE_INSTALL_PREFIX@/include/@PROJECT_NAME_LOWER@-@PROJECT_VERSION_MAJOR@/idl")
+set(PointCloud_Reader_INCLUDE_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@"
+    ${<dependency>_INCLUDE_DIRS}
+    )
+set(PointCloud_Reader_IDL_DIRS
+    "@CMAKE_INSTALL_PREFIX@/include/@CPACK_PACKAGE_FILE_NAME@/idl")
+
+
+if(WIN32)
+    set(PointCloud_Reader_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_STATIC_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+else(WIN32)
+    set(PointCloud_Reader_LIBRARIES
+        "@CMAKE_INSTALL_PREFIX@/@LIB_INSTALL_DIR@/@CMAKE_SHARED_LIBRARY_PREFIX@@PROJECT_NAME_LOWER@@CMAKE_SHARED_LIBRARY_SUFFIX@"
+        ${<dependency>_LIBRARIES}
+        )
+endif(WIN32)
+
+set(PointCloud_Reader_DEFINITIONS ${<dependency>_DEFINITIONS})
+
+set(PointCloud_Reader_VERSION @PROJECT_VERSION@)
+set(PointCloud_Reader_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(PointCloud_Reader_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(PointCloud_Reader_VERSION_REVISION @PROJECT_VERSION_REVISION@)
+set(PointCloud_Reader_VERSION_CANDIDATE @PROJECT_VERSION_CANDIDATE@)
+
