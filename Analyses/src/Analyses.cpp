@@ -31,6 +31,11 @@ int  InputCloud_times;
 struct gng* gng_net;
 double **pointcloud_data;
 
+int epoch;
+int MaxEpoch;
+int epoch_times;
+int edges_num;
+
 // Module specification
 // <rtc-template block="module_spec">
 static const char* const analyses_spec[] =
@@ -70,7 +75,100 @@ Analyses::~Analyses()
 {
 }
 
+void RedirectVTKOutputWindow() {
+    // デフォルトのvtkOutputWindowを無効にする
+    vtkOutputWindow::SetInstance(nullptr);
+    vtkObject::GlobalWarningDisplayOff();
+}
 
+// 点群とGNGのノードとエッジを表示
+void GNGView(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud1,
+    struct gng* net,
+    const std::string& PointName) {
+    RedirectVTKOutputWindow();
+    // Create viewer name
+    std::string ViewerName = PointName + " Viewer";
+    // Create PCL viewer
+    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer(ViewerName));
+    std::cerr << "[INFO] " << ViewerName << " is opened." << std::endl;
+
+    int c0 = 0;
+    // 古いノードとエッジを削除
+    viewer->removeAllShapes(c0);
+    viewer->removeAllPointClouds(c0);
+    // Setting viewport borders
+    viewer->createViewPort(0.0, 0.0, 1.0, 1.0, c0);
+    // Set background color
+    viewer->setBackgroundColor(1.0, 1.0, 1.0, c0);
+    // Delete previous PointCloud data
+    viewer->removePointCloud("cloud1", c0);
+    // Add the loaded PointCloud to the viewer
+    viewer->addPointCloud(cloud1, "cloud1", c0);
+    // Set point size
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 6, "cloud1");
+    viewer->addCoordinateSystem(1.0, "coordinate system", 0);
+    viewer->initCameraParameters();
+    viewer->setCameraPosition(0.0, 0.0, 100.0, // カメラ位置 (x, y, z)
+                              0.0, 0.0, 0.0,   // 注視点 (x, y, z)
+                              0.0, 1.0, 0.0);  // カメラの上方向ベクトル (x, y, z)
+
+    // GNGのノードを点として描画
+    if (net->node_n > 0) {
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr nodes(new pcl::PointCloud<pcl::PointXYZRGB>());
+        for (int i = 0; i < net->node_n; i++) {
+            pcl::PointXYZRGB point;
+            point.x = net->node[i][0];
+            point.y = net->node[i][1];
+            point.z = net->node[i][2];
+            point.r = static_cast<uint8_t>(net->node[i][3] * 255);
+            point.g = static_cast<uint8_t>(net->node[i][4] * 255);
+            point.b = static_cast<uint8_t>(net->node[i][5] * 255);
+            nodes->points.push_back(point);
+        }
+        viewer->addPointCloud(nodes, "nodes");
+        viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 4, "nodes");
+    }
+    else {
+        std::cerr << "[INFO] No nodes to display." << std::endl;
+    }
+
+    int edges = 0;
+    // GNGのエッジを線として描画
+    bool edges_exist = false;
+    for (int i = 0; i < net->node_n; i++) {
+        for (int j = 0; j < net->node_n; j++) {
+            if (net->edge[i][j] == 1 && net->edge[j][i] == 1) {
+                edges_exist = true;
+                pcl::PointXYZ p1, p2;
+                p1.x = net->node[i][0];
+                p1.y = net->node[i][1];
+                p1.z = net->node[i][2];
+                p2.x = net->node[j][0];
+                p2.y = net->node[j][1];
+                p2.z = net->node[j][2];
+                edges++;
+
+                std::stringstream ss;
+                ss << "line" << i << "_" << j;
+                viewer->addLine(p1, p2,
+                    net->node[i][3] * 255.0,
+                    net->node[i][4] * 255.0,
+                    net->node[i][5] * 255.0,
+                    ss.str(), c0);
+                viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, 2, ss.str());
+            }
+        }
+    } if (!edges_exist) {
+        std::cerr << "[INFO] No edges to display." << std::endl;
+    }
+    edges_num = edges;
+
+    // Start the viewer
+    std::cerr << "[INFO] " << PointName << " is shown." << std::endl;
+    std::cerr << "[INFO] Please window closed..." << std::endl;
+    viewer->spin();
+    // Update viewer_closed to true when the window is closed
+}
 
 RTC::ReturnCode_t Analyses::onInitialize()
 {
@@ -129,6 +227,11 @@ RTC::ReturnCode_t Analyses::onActivated(RTC::UniqueId /*ec_id*/)
 
     InputCloud_times = 0;
 
+    epoch = 1000;
+    MaxEpoch = 10000;
+    epoch_times = 0;
+    edges_num = 0;
+
     merge_PointCloud_    = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
     analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
 
@@ -178,7 +281,6 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             m_merge_PointCloudIn.read();
             if (merge_PC_1th_flag) {
                 std::cerr << "[INFO] \"merge_PointCloud\" received!" << std::endl;
-                filtered_analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
                 merge_PC_1th_flag = false;
             }
             InputCloud_times++;
@@ -188,21 +290,54 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             cloud->is_dense = m_merge_PointCloud.is_dense;
             cloud->points.resize(m_merge_PointCloud.width * m_merge_PointCloud.height);
             float* src = (float*)m_merge_PointCloud.data.get_buffer();
-            int datasize = 0;
             for (size_t i = 0; i < cloud->points.size(); i++) {
                 cloud->points[i].x = src[0];
                 cloud->points[i].y = src[1];
                 cloud->points[i].z = src[2];
                 src += 3;
-                if (cloud->points[i].x == 0
-                    && cloud->points[i].y == 0
-                    && cloud->points[i].z == 0) {
+            }
+            merge_PC_read_flag = true;
+        }
+
+        // 現在時刻を取得
+        auto currentTime = std::chrono::system_clock::now();
+
+        if (merge_PC_read_flag) {
+            // 最新データ受信時間の更新
+            startTime = currentTime;
+        }
+        auto timeDifference = currentTime - startTime;
+
+        // 一定時間以内に次の点群が受信された場合、merge_PointCloud_に追加
+        if (timeDifference <= maxTimeDifference) {
+            *merge_PointCloud_ += *cloud;
+            merge_PC_read_flag = false;
+            merge_PC_output_flag = true;
+        }
+        else if (merge_PC_output_flag) {
+            // 指定した時間を超えたらループを終了
+            merge_PC_flag = false;
+            merge_PC_output_flag = false;
+            PC_Read_flag = true;
+        }
+        cloud.reset();
+
+        if (PC_Read_flag) {
+            // 処理の追加 /////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////////////////////////////
+           
+            int datasize = 0;
+            for (size_t i = 0; i < merge_PointCloud_->points.size(); i++) {
+                if (merge_PointCloud_->points[i].x == 0
+                    && merge_PointCloud_->points[i].y == 0
+                    && merge_PointCloud_->points[i].z == 0) {
                     continue;
                 }
 
-                pointcloud_data[datasize][0] = cloud->points[i].x;
-                pointcloud_data[datasize][1] = cloud->points[i].y;
-                pointcloud_data[datasize++][2] = cloud->points[i].z;
+                pointcloud_data[datasize][0] = merge_PointCloud_->points[i].x;
+                pointcloud_data[datasize][1] = merge_PointCloud_->points[i].y;
+                pointcloud_data[datasize++][2] = merge_PointCloud_->points[i].z;
             }
             for (int i = 0; i < gng_net->node_n; i++) {
                 gng_net->edge_ct[i] = 0;
@@ -221,91 +356,64 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
             if (datasize < GNGN) {
                 maxnode = datasize / 2;
             }
-            while (gng_net->node_n < maxnode) {
-                for (int i = 0; i < 20; i++) {
-                    gng_main(gng_net, pointcloud_data, datasize);
-                }
-            }
-            printf("# of node is %d\n", gng_net->node_n);
-            for (int i = 0; i < 20; i++) {
-                gng_main(gng_net, pointcloud_data, datasize);
-            }
+			
+            do {
+                do {
+                    for (int i = 0; i < epoch; i++) {
+                        gng_main(gng_net, pointcloud_data, datasize);
+                        epoch_times++;
+                    }
+                    if (epoch_times >= MaxEpoch) {
+                        break;
+                    }
+                } while (gng_net->node_n < GNGN - 3);
+                break;
+            } while (epoch_times < MaxEpoch);
 
-            int currentsize = analyses_PointCloud_->size();
-            analyses_PointCloud_->resize(currentsize + gng_net->node_n);
+            filtered_analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
+            int a_currentsize = analyses_PointCloud_->size();
+            analyses_PointCloud_->resize(a_currentsize + gng_net->node_n);
             for (int i = 0; i < gng_net->node_n; i++) {
-                analyses_PointCloud_->points[currentsize + i].x = gng_net->node[i][0];
-                analyses_PointCloud_->points[currentsize + i].y = gng_net->node[i][2];
-                analyses_PointCloud_->points[currentsize + i].z = gng_net->node[i][1];
-                analyses_PointCloud_->points[currentsize + i].r = 0;
-                analyses_PointCloud_->points[currentsize + i].g = 0;
-                analyses_PointCloud_->points[currentsize + i].b = 0;
+                analyses_PointCloud_->points[a_currentsize + i].x = gng_net->node[i][0];
+                analyses_PointCloud_->points[a_currentsize + i].y = gng_net->node[i][1];
+                analyses_PointCloud_->points[a_currentsize + i].z = gng_net->node[i][2];
+                analyses_PointCloud_->points[a_currentsize + i].r = 0;
+                analyses_PointCloud_->points[a_currentsize + i].g = 0;
+                analyses_PointCloud_->points[a_currentsize + i].b = 0;
                 if (gng_net->node[i][7] != -10.0) {
                     double threshold = 0.1;
-                    analyses_PointCloud_->points[currentsize + i].r = (int)(gng_net->node[i][7] / threshold * 255.0);
+                    analyses_PointCloud_->points[a_currentsize + i].r = (int)(gng_net->node[i][7] / threshold * 255.0);
 
-                    if (analyses_PointCloud_->points[currentsize + i].r > 100) {
+                    if (analyses_PointCloud_->points[a_currentsize + i].r > 100) {
                         pcl::PointXYZRGB point;
                         point.x = gng_net->node[i][0];
-                        point.y = gng_net->node[i][2];
-                        point.z = gng_net->node[i][1];
+                        point.y = gng_net->node[i][1];
+                        point.z = gng_net->node[i][2];
                         point.r = (int)(gng_net->node[i][7] / threshold * 255.0);
                         point.g = 0;
                         point.b = 0;
-                        if (analyses_PointCloud_->points[currentsize + i].r > 255) {
-                            analyses_PointCloud_->points[currentsize + i].r = 255;
+                        if (analyses_PointCloud_->points[a_currentsize + i].r > 255) {
+                            analyses_PointCloud_->points[a_currentsize + i].r = 255;
                             point.r = 255;
                         }
                         filtered_analyses_PointCloud_->points.push_back(point);
                     }
                 }
                 else {
-                    analyses_PointCloud_->points[currentsize + i].g = 255;
+                    analyses_PointCloud_->points[a_currentsize + i].g = 255;
                 }
             }
             filtered_analyses_PointCloud_->width = static_cast<uint32_t>(filtered_analyses_PointCloud_->points.size());
             filtered_analyses_PointCloud_->height = 1;
             filtered_analyses_PointCloud_->is_dense = true;
 
-            merge_PC_read_flag = true;
-        }
-
-        // 現在時刻を取得
-        auto currentTime = std::chrono::system_clock::now();
-
-        if (merge_PC_read_flag) {
-            // 最新データ受信時間の更新
-            startTime = currentTime;
-        }
-        auto timeDifference = currentTime - startTime;
-
-        // 一定時間以内に次の点群が受信された場合、merge_PointCloud_に追加
-        if (timeDifference <= maxTimeDifference) {
-            *merge_PointCloud_ += *cloud;
-            merge_PC_read_flag   = false;
-            merge_PC_output_flag = true;
-        }
-        else if (merge_PC_output_flag) {
-            // 指定した時間を超えたらループを終了
-            merge_PC_flag        = false;
-            merge_PC_output_flag = false;
-            PC_Read_flag         = true;
-        }
-        cloud.reset();
-
-        if (PC_Read_flag) {
-            // 処理の追加 /////////////////////////////////////////////////////////////////
-            ///////////////////////////////////////////////////////////////////////////////
-            ///////////////////////////////////////////////////////////////////////////////
-           
             pcl::io::savePLYFile("res.ply", *analyses_PointCloud_);
-
             analyses_PointCloud_.reset();
             analyses_PointCloud_ = pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-            int currentsize = filtered_analyses_PointCloud_->size();
-            analyses_PointCloud_->resize(currentsize);
-            for (int i = 0; i < currentsize; i++) {
+            int f_currentsize = filtered_analyses_PointCloud_->size();
+            analyses_PointCloud_->resize(f_currentsize);
+            for (int i = 0; i < f_currentsize; i++) {
                 analyses_PointCloud_->points[i].x = filtered_analyses_PointCloud_->points[i].x;
                 analyses_PointCloud_->points[i].y = filtered_analyses_PointCloud_->points[i].y;
                 analyses_PointCloud_->points[i].z = filtered_analyses_PointCloud_->points[i].z;
@@ -317,7 +425,12 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
                 analyses_PointCloud_->points[0].x = NULL;
                 analyses_PointCloud_->points[0].y = NULL;
                 analyses_PointCloud_->points[0].z = NULL;
-             }
+            }
+
+			GNGView(filtered_analyses_PointCloud_, gng_net, "GNG");
+            std::cerr << "[INFO] Current number of epochs: " << epoch_times << std::endl;
+            std::cerr << "[INFO] Current number of Nodes: "  << gng_net->node_n + 1 << std::endl;
+            std::cerr << "[INFO] Current number of Edges: "  << edges_num << std::endl;
 
             int Process_OK = 0; // 関数等からの戻り値によって点群の出力を開始
 
