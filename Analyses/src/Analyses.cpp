@@ -427,7 +427,7 @@ RTC::ReturnCode_t Analyses::onExecute(RTC::UniqueId /*ec_id*/)
                 analyses_PointCloud_->points[0].z = NULL;
             }
 
-			GNGView(filtered_analyses_PointCloud_, gng_net, "GNG");
+	    // GNGView(filtered_analyses_PointCloud_, gng_net, "GNG");
             std::cerr << "[INFO] Current number of epochs: " << epoch_times << std::endl;
             std::cerr << "[INFO] Current number of Nodes: "  << gng_net->node_n + 1 << std::endl;
             std::cerr << "[INFO] Current number of Edges: "  << edges_num << std::endl;
